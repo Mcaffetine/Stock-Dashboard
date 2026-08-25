@@ -1,182 +1,178 @@
-import streamlit as st
-import numpy as np
+import streamlit as pd_app
+import pandas as pd
 
-# Set page config for mobile and desktop responsiveness
-st.set_page_config(
-    page_title="AlphaQuant Dashboard",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
+# Page Configuration for Cross-Device Layout
+pd_app.set_page_config(page_title="Pro Stock Terminal", layout="wide", initial_sidebar_state="expanded")
+
+pd_app.title("📊 AlphaEngine: Multi-Strategy Stock Appraisal Terminal")
+pd_app.markdown("---")
+
+# -----------------------------------------------------------------
+# 1. CORE CONFIGURATION & DYNAMIC THRESHOLDS MODE
+# -----------------------------------------------------------------
+pd_app.sidebar.header("🎯 System Mode Configuration")
+mode = pd_app.sidebar.selectbox(
+    "Select Appraisal Framework Mode",
+    ["Growth Hunter", "Value Investor", "Momentum Swing", "Independent Custom"]
 )
 
-# Custom CSS for dark theme and professional styling
-st.markdown("""
-<style>
-    .reportview-container { background: #0e1117; }
-    .metric-box {
-        background-color: #1e222b;
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 5px solid #3b82f6;
-        margin-bottom: 15px;
-    }
-    .flag-box {
-        background-color: #2a1b1b;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 5px solid #ef4444;
-        margin-bottom: 10px;
-    }
-    .pass-box {
-        background-color: #1b2a1c;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 5px solid #10b981;
-        margin-bottom: 10px;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Standard Institutional Baseline Definitions
+defaults = {
+    "Growth Hunter": {"pe": 40.0, "peg": 1.2, "eps": 15.0, "rev": 12.0, "roe": 15.0, "de": 1.5, "rsi_min": 45.0, "rsi_max": 70.0},
+    "Value Investor": {"pe": 18.0, "peg": 1.0, "eps": 5.0, "rev": 4.0, "roe": 12.0, "de": 0.8, "rsi_min": 30.0, "rsi_max": 55.0},
+    "Momentum Swing": {"pe": 60.0, "peg": 2.0, "eps": 10.0, "rev": 10.0, "roe": 10.0, "de": 2.0, "rsi_min": 55.0, "rsi_max": 75.0},
+    "Independent Custom": {"pe": 25.0, "peg": 1.2, "eps": 10.0, "rev": 8.0, "roe": 14.0, "de": 1.2, "rsi_min": 40.0, "rsi_max": 70.0}
+}
 
-st.title("📊 AlphaQuant: Multi-Mode Stock Evaluator")
-st.markdown("Evaluate stocks across **Growth**, **Value**, and **Momentum** archetypes with dynamic rules, thresholds, and clear risk flags.")
+current_limits = defaults[mode]
 
-# Sidebar Configuration
-st.sidebar.header("🕹️ Strategy & Thresholds")
-mode = st.sidebar.selectbox(
-    "Active Analysis Mode",
-    ["Growth Hunter", "Value Investor", "Momentum Swing"],
-    help="Changes evaluation focus, weight distributions, and red flag sensitivity."
-)
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("⚙️ Adjustable Thresholds (Defaults Set)")
-
-# Threshold Inputs
-target_eps_growth = st.sidebar.slider("Min EPS Growth (%)", 0, 100, 15, help="Standard: 15%")
-max_pe = st.sidebar.slider("Max P/E Ratio", 5, 100, 25, help="Standard: 25")
-max_peg = st.sidebar.slider("Max PEG Ratio", 0.5, 4.0, 1.2, 0.1, help="Standard: 1.2")
-min_roe = st.sidebar.slider("Min ROE (%)", 0, 50, 15, help="Standard: 15%")
-min_div_yield = st.sidebar.slider("Min Dividend Yield (%)", 0.0, 15.0, 2.5, 0.5, help="Standard: 2.5%")
-rsi_overbought = st.sidebar.slider("RSI Overbought Threshold", 50, 90, 70, help="Standard: 70")
-rsi_oversold = st.sidebar.slider("RSI Oversold Threshold", 10, 50, 30, help="Standard: 30")
-
-# Main Input Layout
-st.subheader("📝 Stock Financial & Technical Inputs")
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    ticker = st.text_input("Stock Ticker", "AAPL").upper()
-    eps_growth = st.number_input("Current EPS Growth (%)", value=18.5)
-with col2:
-    pe_ratio = st.number_input("P/E Ratio", value=22.0)
-    peg_ratio = st.number_input("PEG Ratio", value=1.1)
-with col3:
-    roe = st.number_input("Return on Equity (ROE %)", value=16.5)
-    div_yield = st.number_input("Dividend Yield (%)", value=1.2)
-with col4:
-    rsi = st.number_input("RSI (14-Day)", value=65.0)
-    macd_status = st.selectbox("MACD Line Status", ["Bullish Crossover", "Bearish Crossover", "Neutral/Flat"])
-
-# Scoring Logic Engine
-def calculate_scores():
-    # Growth Score
-    g_eps = min(100, (eps_growth / target_eps_growth) * 100) if eps_growth > 0 else 0
-    g_peg = 100 if peg_ratio <= max_peg else max(0, 100 - (peg_ratio - max_peg) * 50)
-    g_roe = min(100, (roe / min_roe) * 100) if roe > 0 else 0
-    growth_score = (g_eps * 0.4) + (g_peg * 0.4) + (g_roe * 0.2)
+# Render interactive sliders ONLY if independent custom mode is active
+if mode == "Independent Custom":
+    pd_app.sidebar.markdown("### 🛠️ Adjust Targets Manually")
+    t_pe = pd_app.sidebar.slider("Max P/E Ratio Allowance", 5.0, 100.0, current_limits["pe"])
+    t_peg = pd_app.sidebar.slider("Max PEG Ratio Allowance", 0.2, 3.5, current_limits["peg"])
+    t_eps = pd_app.sidebar.slider("Min EPS Growth Floor (%)", -10.0, 50.0, current_limits["eps"])
+    t_rev = pd_app.sidebar.slider("Min Revenue Growth Floor (%)", -10.0, 50.0, current_limits["rev"])
+    t_roe = pd_app.sidebar.slider("Min Return on Equity (%)", 0.0, 40.0, current_limits["roe"])
+    t_de = pd_app.sidebar.slider("Max Debt-to-Equity Ratio", 0.1, 4.0, current_limits["de"])
+    t_rsi = pd_app.sidebar.slider("Acceptable RSI Target Window", 10, 90, (int(current_limits["rsi_min"]), int(current_limits["rsi_max"])))
     
-    # Value Score
-    v_pe = 100 if pe_ratio <= max_pe else max(0, 100 - (pe_ratio - max_pe) * 3)
-    v_peg = 100 if peg_ratio <= max_peg else max(0, 100 - (peg_ratio - max_peg) * 40)
-    v_div = min(100, (div_yield / min_div_yield) * 100) if div_yield > 0 else 0
-    value_score = (v_pe * 0.4) + (v_peg * 0.3) + (v_div * 0.3)
-    
-    # Momentum Score
-    m_rsi = 100 - abs(rsi - 60) * 2 if rsi >= 50 else max(0, rsi * 1.5)
-    m_macd = 100 if macd_status == "Bullish Crossover" else (30 if macd_status == "Bearish Crossover" else 60)
-    momentum_score = (m_rsi * 0.5) + (m_macd * 0.5)
-    
-    return round(growth_score, 1), round(value_score, 1), round(momentum_score, 1)
+    limits = {"pe": t_pe, "peg": t_peg, "eps": t_eps, "rev": t_rev, "roe": t_roe, "de": t_de, "rsi_min": t_rsi[0], "rsi_max": t_rsi[1]}
+else:
+    limits = current_limits
+    pd_app.sidebar.info(f"🔒 **Standard Limits Locked** for {mode}. Switch to 'Independent Custom' to adjust values manually.")
 
-g_score, v_score, m_score = calculate_scores()
+# -----------------------------------------------------------------
+# 2. EXPANDED USER DATA INPUT MATRIX
+# -----------------------------------------------------------------
+pd_app.subheader("📝 Stock Financial & Technical Metric Entry")
+col_meta, col_fund1, col_fund2, col_tech = pd_app.columns(4)
 
-# Identify active framework context
-active_score = g_score if mode == "Growth Hunter" else (v_score if mode == "Value Investor" else m_score)
+with col_meta:
+    ticker = pd_app.text_input("Ticker Symbol", "AAPL").upper()
+    curr_price = pd_app.number_input("Current Share Price ($)", min_value=0.01, value=150.00, step=1.0)
+    div_yield = pd_app.number_input("Dividend Yield (%)", min_value=0.0, value=1.5, step=0.1)
 
-# Process Flags based on user's specific picked mode
+with col_fund1:
+    pe_ratio = pd_app.number_input("P/E Ratio", min_value=0.0, value=28.5, step=0.5)
+    peg_ratio = pd_app.number_input("PEG Ratio", min_value=0.0, value=1.1, step=0.1)
+    roe = pd_app.number_input("Return on Equity (ROE %)", min_value=-50.0, value=18.5, step=0.5)
+
+with col_fund2:
+    eps_growth = pd_app.number_input("EPS Growth Rate YoY (%)", min_value=-100.0, value=16.0, step=0.5)
+    rev_growth = pd_app.number_input("Revenue Growth YoY (%)", min_value=-100.0, value=14.0, step=0.5)
+    de_ratio = pd_app.number_input("Debt to Equity Ratio", min_value=0.0, value=0.9, step=0.1)
+
+with col_tech:
+    rsi_val = pd_app.number_input("RSI (14-Day)", min_value=0.0, max_value=100.0, value=58.0, step=1.0)
+    sma_50_dist = pd_app.number_input("Distance from 50 SMA (%)", min_value=-50.0, value=4.5, step=0.5)
+    macd_status = pd_app.selectbox("MACD Signal Line Status", ["Bullish Crossover", "Bearish Crossover", "Neutral / Flat"])
+
+# -----------------------------------------------------------------
+# 3. ADVANCED TRIPLE ARCHETYPE SCORING MATRIX ENGINE
+# -----------------------------------------------------------------
+# Growth Core Score
+g_score = 0
+if eps_growth >= limits["eps"]: g_score += 25
+if rev_growth >= limits["rev"]: g_score += 25
+if peg_ratio <= limits["peg"]: g_score += 20
+if roe >= limits["roe"]: g_score += 15
+if macd_status == "Bullish Crossover": g_score += 15
+
+# Value Core Score
+v_score = 0
+if pe_ratio <= limits["pe"]: v_score += 30
+if peg_ratio <= (limits["peg"] * 0.8): v_score += 25
+if de_ratio <= limits["de"]: v_score += 20
+if div_yield > 2.5: v_score += 15
+if rsi_val <= 45: v_score += 10
+
+# Momentum Swing Score
+m_score = 0
+if rsi_val >= limits["rsi_min"] and rsi_val <= limits["rsi_max"]: m_score += 30
+if macd_status == "Bullish Crossover": m_score += 25
+if sma_50_dist > 0: m_score += 25
+if eps_growth > 5: m_score += 20
+
+# -----------------------------------------------------------------
+# 4. CONDITIONAL MODE-DRIVEN RED FLAG ENGINE
+# -----------------------------------------------------------------
 red_flags = []
-green_flags = []
+
+if rsi_val > 75:
+    red_flags.append("⚠️ OVERBOUGHT MOMENTUM: Technical RSI indicates near-term exhaustion risks.")
+if de_ratio > limits["de"]:
+    red_flags.append(f"⚠️ LEVERAGE RISK: Debt-to-Equity ({de_ratio}) exceeds target boundary limits ({limits['de']}).")
 
 if mode == "Growth Hunter":
-    if eps_growth < target_eps_growth: red_flags.append(f"EPS Growth ({eps_growth}%) is below your target milestone ({target_eps_growth}%).")
-    if peg_ratio > max_peg: red_flags.append(f"PEG ratio ({peg_ratio}) points to growth overvaluation.")
-    if roe < min_roe: red_flags.append(f"ROE ({roe}%) indicates management operational sub-efficiency.")
-    if not red_flags: green_flags.append("Core business growth engines are running cleanly.")
-
+    if eps_growth < limits["eps"]: red_flags.append("🚨 STAGNANT EARNINGS: EPS growth fails baseline framework standards.")
+    if peg_ratio > limits["peg"]: red_flags.append("🚨 OVERPRICED GROWTH: PEG valuation framework indicates heavy premiums.")
 elif mode == "Value Investor":
-    if pe_ratio > max_pe: red_flags.append(f"P/E Ratio ({pe_ratio}) exceeds maximum margin of safety limit ({max_pe}).")
-    if div_yield < min_div_yield: red_flags.append(f"Dividend yield ({div_yield}%) fails to meet baseline passive cash criteria.")
-    if peg_ratio > 1.5: red_flags.append(f"PEG ratio ({peg_ratio}) indicates you are paying too much premium for value.")
-    if not red_flags: green_flags.append("Stock displays strong protective margin of safety characteristics.")
-
+    if pe_ratio > limits["pe"]: red_flags.append("🚨 VALUATION PREMIUM: P/E metric is too high for conservative target allocation.")
+    if div_yield == 0: red_flags.append("⚠️ NO DIVIDEND BUFFER: Stock offers no downside cash protection yield safety net.")
 elif mode == "Momentum Swing":
-    if rsi > rsi_overbought: red_flags.append(f"RSI ({rsi}) is in hyper-overbought territory. High pullback vulnerability.")
-    if macd_status == "Bearish Crossover": red_flags.append("MACD triggered a bearish downside crossover event.")
-    if rsi < rsi_oversold: red_flags.append(f"RSI ({rsi}) indicates structural capital capitulation.")
-    if not red_flags: green_flags.append("Price action shows clean structural chart accumulation.")
+    if macd_status == "Bearish Crossover": red_flags.append("🚨 TREND DECAY: MACD technical structure signals strong distribution.")
+    if sma_50_dist < -5: red_flags.append("🚨 TECHNICAL BREAKDOWN: Asset price values are dropping below core structural support layers.")
 
-# Penalty application for strict contextual flags
+# Render Red Flag Notifications
+pd_app.subheader("🚨 Risk Warning Analysis Feed")
 if red_flags:
-    active_score = max(0, active_score - (len(red_flags) * 12))
+    for flag in red_flags:
+        pd_app.error(flag)
+else:
+    pd_app.success("✅ Clean Risk Profile: No system parameters triggered critical threshold warnings.")
 
-st.markdown("---")
-st.subheader(f"📈 Engine Results for {ticker} (Mode: {mode})")
+# Display Quantitative Score Metrics
+pd_app.markdown("---")
+pd_app.subheader("📊 Tactical Asset Suitability Breakdowns")
+c_g, c_v, c_m = pd_app.columns(3)
+c_g.metric("Growth Allocation Match Score", f"{g_score}%", f"Target: >= 75%")
+c_v.metric("Value Framework Match Score", f"{v_score}%", f"Target: >= 70%")
+c_m.metric("Momentum Swing Match Score", f"{m_score}%", f"Target: >= 80%")
 
-# Visual Display Section 1: All 3 Scores Progress Gauges
-c1, c2, c3 = st.columns(3)
-with c1:
-    st.metric("Growth Archetype Score", f"{g_score}%")
-    st.progress(g_score / 100)
-with c2:
-    st.metric("Value Archetype Score", f"{v_score}%")
-    st.progress(v_score / 100)
-with c3:
-    st.metric("Momentum Swing Score", f"{m_score}%")
-    st.progress(m_score / 100)
+# -----------------------------------------------------------------
+# 5. ALGORITHMIC PRICING ENTRY & EXIT BOUNDARIES
+# -----------------------------------------------------------------
+pd_app.markdown("---")
+pd_app.subheader("🎯 Automated Entry / Target Bounds Pricing Matrix")
 
-# Section 2: Detailed Text Grading, Visual Flags, and AI Summaries
-st.markdown("---")
-col_left, col_right = st.columns([2, 1])
+# Calculate targets dynamically based on input health metrics
+discount_factor = 0.85 if mode == "Value Investor" else 0.92
+target_premium = 1.25 if mode == "Growth Hunter" else 1.15
 
-with col_left:
-    st.subheader("🔍 Contextual Health Check & Analysis")
-    if red_flags:
-        st.markdown("#### ⚠️ High-Risk Risk Flags Spotted")
-        for flag in red_flags:
-            st.markdown(f"<div class='flag-box'>❌ {flag}</div>", unsafe_allow_html=True)
-    if green_flags or not red_flags:
-        st.markdown("#### ✅ Alignment Signals Approved")
-        for gf in green_flags:
-            st.markdown(f"<div class='pass-box'>⭐ {gf}</div>", unsafe_allow_html=True)
+calculated_buy = curr_price * discount_factor
+calculated_sell = curr_price * target_premium
 
-with col_right:
-    st.subheader("📝 Dynamic Archetype Summary")
-    
-    # 3-Way Comprehensive Text Feedback
-    st.markdown("##### 🚀 Growth Assessment")
-    if g_score >= 75: st.write("Strong compounding profile. Numbers support active business scale-up.")
-    elif g_score >= 45: st.write("Moderate expansion. Some foundational metrics require macro stabilization.")
-    else: st.write("Stagnant growth. Financial architecture suggests structural plateau risk.")
-    
-    st.markdown("##### 💎 Value Assessment")
-    if v_score >= 75: st.write("Deep margin of safety present. Trading under intrinsic premium levels.")
-    elif v_score >= 45: st.write("Fairly valued pricing structure. Limited built-in structural discount.")
-    else: st.write("Premium price multiple trap. High risk of overpaying relative to assets.")
-    
-    st.markdown("##### ⚡ Momentum Assessment")
-    if m_score >= 75: st.write("Clean bullish trend velocity. Strong institutional capital commitment.")
-    elif m_score >= 45: st.write("Indecisive directional action. Consolidation phase ongoing.")
-    else: st.write("Severe downward pressure. Bearish trend dominant.")
+col_p1, col_p2, col_p3 = pd_app.columns(3)
+col_p1.info(f"**Current Reference Price:**\n\n### ${curr_price:,.2f}")
+col_p2.success(f"**Calculated Entry Target Zone:**\n\n### ${calculated_buy:,.2f}\n*(Includes margin of safety adjustments)*")
+col_p3.warning(f"**Target Take-Profit Target Zone:**\n\n### ${calculated_sell:,.2f}\n*(Calculated valuation expansion target)*")
 
-st.sidebar.markdown("---")
-st.sidebar.caption("AlphaQuant v1.0.0 • Developed for cross-device web deployment.")
+# -----------------------------------------------------------------
+# 6. HISTORICAL LEGEND INSIGHT CONSOLE
+# -----------------------------------------------------------------
+pd_app.markdown("---")
+pd_app.subheader("📖 Elite Investor Framework Commentary")
+
+exp_growth, exp_value, exp_swing = pd_app.columns(3)
+
+with exp_growth:
+    pd_app.markdown("⭐ **Peter Lynch & William O'Neil Viewpoint:**")
+    if eps_growth >= 15 and peg_ratio <= 1.2:
+        pd_app.write("*\"This asset displays textbook CANSLIM properties. Strong underlying earnings speed combined with a fair valuation matrix means room to run.\"*")
+    else:
+        pd_app.write("*\"Growth must be clean. If earnings velocity stalls or the PEG breaks into premium numbers, you are overpaying for structural risks.\"*")
+
+with exp_value:
+    pd_app.markdown("⭐ **Benjamin Graham & Warren Buffett Viewpoint:**")
+    if pe_ratio <= 20 and de_ratio <= 1.0:
+        pd_app.write("*\"Capital safety relies entirely on a wide margin of safety. Low debt and reasonable valuations protect your investment foundation.\"*")
+    else:
+        pd_app.write("*\"Do not confuse a cyclical valuation peak with true business value. High debt footprints erode corporate compounding speed.\"*")
+
+with exp_swing:
+    pd_app.markdown("⭐ **Mark Minervini Trend Viewpoint:**")
+    if rsi_val >= 50 and macd_status == "Bullish Crossover":
+        pd_app.write("*\"Never buy structural asset drops. Only long positions above moving averages backed by momentum acceleration protect alpha generation.\"*")
+    else:
+        pd_app.write("*\"Momentum is absent here. Entering an asset before a clear structural structural turn traps trading liquidity unnecessarily.\"*")
