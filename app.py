@@ -38,7 +38,7 @@ if mode == "Independent Custom":
     t_de = pd_app.sidebar.slider("Max Debt-to-Equity Ratio", 0.1, 3.5, current_limits["de"])
     t_sponsor = pd_app.sidebar.slider("Min Sponsor Holding Requirement (%)", 0.0, 100.0, current_limits["min_sponsor"])
     t_rsi = pd_app.sidebar.slider("RSI Momentum Window", 10, 90, (int(current_limits["rsi_min"]), int(current_limits["rsi_max"])))
-    limits = {"pe": t_pe, "peg": t_peg, "eps": t_eps, "rev": t_rev, "roe": t_roe, "de": t_de, "rsi_min": t_rsi[0], "rsi_max": t_rsi[1], "min_sponsor": t_sponsor}
+    limits = {"pe": t_pe, "peg": t_peg, "eps": t_eps, "rev": t_rev, "roe": t_roe, "de": t_de, "rsi_min": t_rsi, "rsi_max": t_rsi, "min_sponsor": t_sponsor}
 else:
     limits = current_limits
     pd_app.sidebar.info(f"🔒 **Standard Limits Active** for {mode}.")
@@ -49,7 +49,7 @@ dse_category = pd_app.sidebar.selectbox("Stock Category Tier (DSE/CSE)", ["A-Cat
 audit_status = pd_app.sidebar.selectbox("Auditor Report Certification Status", ["Unqualified / Clean Audit", "Qualified / Disclaimer Signalled", "Failed / Non-Compliant Layout"])
 
 # -----------------------------------------------------------------
-# 2. REAL-TIME MULTI-SOURCE INPUT PORTAL
+# 2. INPUT PORTAL FOR REAL-TIME PLATFORMS
 # -----------------------------------------------------------------
 pd_app.subheader("🔍 Local Ticker Evaluation Matrix")
 raw_ticker = pd_app.text_input("Enter Ticker Code (e.g. BRACBANK, GP, BATBC, SQURPHARMA)", "BRACBANK").upper().strip()
@@ -77,7 +77,7 @@ with col_u4:
     rsi_val = pd_app.slider("Real-time RSI (14-Day Value)", 10, 90, 54)
     macd_status = pd_app.selectbox("MACD Signalling Cross Status", ["Bullish Crossover", "Bearish Crossover", "Neutral / Horizontal Trend"])
 
-# Calculated Variables
+# Clear Derived Valuation Formulas
 peg_ratio = pe_ratio / (eps_growth if eps_growth > 0 else 1.0)
 pb_ratio = curr_price / (nav_per_share if nav_per_share > 0 else 1.0)
 
@@ -100,7 +100,7 @@ lower_circuit = curr_price - variance
 # -----------------------------------------------------------------
 g_score, v_score, m_score = 0, 0, 0
 
-# Growth Framework Points
+# Growth Framework Evaluation
 if eps_growth >= limits["eps"]: g_score += 20
 if rev_growth >= limits["rev"]: g_score += 20
 if peg_ratio <= limits["peg"] and peg_ratio > 0: g_score += 20
@@ -108,14 +108,14 @@ if roe >= limits["roe"]: g_score += 15
 if net_profit_margin >= 10: g_score += 15
 if dse_category.startswith("A"): g_score += 10
 
-# Value Framework Points
+# Value Framework Evaluation
 if pe_ratio <= limits["pe"] and pe_ratio > 0: v_score += 25
 if pb_ratio <= 1.5: v_score += 20
 if de_ratio <= limits["de"]: v_score += 20
-if div_yield >= 4.5: v_score += 20  # Crucial cash dependency score
+if div_yield >= 4.5: v_score += 20  
 if sponsor_share >= limits["min_sponsor"]: v_score += 15
 
-# Momentum Swing Framework Points
+# Momentum Swing Framework Evaluation
 if rsi_val >= limits["rsi_min"] and rsi_val <= limits["rsi_max"]: m_score += 35
 if macd_status == "Bullish Crossover": m_score += 35
 if dse_category.startswith("A") or dse_category.startswith("B"): m_score += 30
@@ -125,45 +125,45 @@ if dse_category.startswith("A") or dse_category.startswith("B"): m_score += 30
 # -----------------------------------------------------------------
 red_flags = []
 if dse_category.startswith("Z"):
-    red_flags.append("🚨 DSE CRITICAL ALERT: Z-Category 'Junk Stock' classification. High risk of capital lockups or mandatory liquidation.")
+    red_flags.append("🚨 DSE CRITICAL ALERT: Z-Category 'Junk Stock' classification. High risk of capital lockups.")
 if audit_status != "Unqualified / Clean Audit":
-    red_flags.append(f"🚨 AUDIT COMPLIANCE EXPOSURE: Company financial books flagged with '{audit_status}'. High probability of window dressing.")
+    red_flags.append(f"🚨 AUDIT COMPLIANCE EXPOSURE: Company financial books flagged with '{audit_status}'.")
 if sponsor_share < 30.0:
-    red_flags.append(f"⚠️ REGULATORY COMPLIANCE HOLE: Sponsor holdings are at {sponsor_share:.1f}%, failing BSEC's mandatory 30% baseline threshold rule.")
+    red_flags.append(f"⚠️ REGULATORY COMPLIANCE HOLE: Sponsor holdings are at {sponsor_share:.1f}%, failing BSEC's mandatory 30% rule.")
 if div_yield == 0 and dse_category.startswith("A"):
-    red_flags.append("🚨 CASH DEFICIT ALERT: Classified as an A-Category asset but currently pays out 0% cash distributions. Potential liquidity strain.")
+    red_flags.append("🚨 CASH DEFICIT ALERT: Classified as an A-Category asset but pays 0% cash distributions.")
 if rsi_val > 78:
-    red_flags.append("⚠️ RETAIL CORNERING DETECTED: Technical overbought signals show standard price amplification trends. High corrections imminent.")
+    red_flags.append("⚠️ RETAIL CORNERING DETECTED: Technical overbought signals show standard price amplification trends.")
 
-# Render User Interface
-c_metrics, c_visuals = pd_app.columns([2, 1])
+# Render Dashboard Metrics
+c_metrics, c_visuals = pd_app.columns()
 
 with c_metrics:
     pd_app.subheader(f"📊 Valuation Metrics: {raw_ticker}")
     m1, m2, m3, m4 = pd_app.columns(4)
-    m1.metric("Current LTP Price", f"{curr_price:.2f} BDT")
-    m2.metric("Trailing P/E Ratio", f"{pe_ratio:.2f}")
+    m1.metric("Current Price", f"{curr_price:.2f} BDT")
+    m2.metric("Trailing P/E", f"{pe_ratio:.2f}")
     m3.metric("Calculated PEG", f"{peg_ratio:.2f}")
     m4.metric("Price-to-Book (P/B)", f"{pb_ratio:.2f}")
     
     m5, m6, m7, m8 = pd_app.columns(4)
-    m5.metric("EPS Expansion Speed", f"{eps_growth:.1f}%")
+    m5.metric("EPS Growth YoY", f"{eps_growth:.1f}%")
     m6.metric("Revenue Growth", f"{rev_growth:.1f}%")
-    m7.metric("Net Profit Margin", f"{net_profit_margin:.1f}%")
+    m7.metric("Profit Margin", f"{net_profit_margin:.1f}%")
     m8.metric("Return on Equity", f"{roe:.1f}%")
     
     m9, m10, m11, m12 = pd_app.columns(4)
     m9.metric("Cash Yield %", f"{div_yield:.2f}%")
-    m10.metric("Sponsor Position %", f"{sponsor_share:.1f}%")
-    m11.metric("Debt-to-Equity (D/E)", f"{de_ratio:.2f}")
-    m12.metric("RSI Wave Level", f"{rsi_val}")
+    m10.metric("Sponsor Holding", f"{sponsor_share:.1f}%")
+    m11.metric("Debt-to-Equity", f"{de_ratio:.2f}")
+    m12.metric("RSI Level", f"{rsi_val}")
 
     pd_app.markdown("---")
     pd_app.subheader("🚨 Risk Warning Analysis Feed")
     if red_flags:
         for flag in red_flags: pd_app.error(flag)
     else:
-        pd_app.success("✅ Clean Regulatory & Financial Profile: Asset passes core safety thresholds safely.")
+        pd_app.success("✅ Clean Regulatory & Financial Profile: Asset passes core safety thresholds.")
 
 with c_visuals:
     pd_app.subheader("⚡ DSE Regulatory Execution Boundaries")
@@ -176,10 +176,18 @@ with c_visuals:
 pd_app.markdown("---")
 pd_app.subheader("🎯 Automated Tactical Buy / Sell Matrix Strategy")
 
-# Smart multi-indicator valuation discounting factors
-intrinsic_discount = 0.88 if PB_VAL := pb_ratio < 1.2 else 0.82
-if audit_status != "Unqualified / Clean Audit": intrinsic_discount -= 0.15 # Deduct heavily for bad compliance audit files
+# Fixed structural baseline pricing variables
+if pb_ratio < 1.2:
+    intrinsic_discount = 0.88
+else:
+    intrinsic_discount = 0.82
+
+if audit_status != "Unqualified / Clean Audit": 
+    intrinsic_discount -= 0.15
 
 buy_tgt = curr_price * intrinsic_discount
 sell_tgt = curr_price * (1.25 if mode == "Growth Hunter" else 1.16)
 
+p1, p2, p3 = pd_app.columns(3)
+p1.info(f"**Current Price Reference Base:**\n\n### {curr_price:.2f} BDT")
+p2.success(f"**Calculated Entry Allocation Target:**\n\n### {buy_tgt:.2f} BDT\n*(Calculated with local safety margin padding)*")
