@@ -136,7 +136,7 @@ if rsi_val > 78:
     red_flags.append("⚠️ RETAIL CORNERING DETECTED: Technical overbought signals show standard price amplification trends.")
 
 # Render Dashboard Metrics
-c_metrics, c_visuals = pd_app.columns()
+c_metrics, c_visuals = pd_app.columns(2)  # FIXED COMPILING ERROR HERE
 
 with c_metrics:
     pd_app.subheader(f"📊 Valuation Metrics: {raw_ticker}")
@@ -190,4 +190,3 @@ sell_tgt = curr_price * (1.25 if mode == "Growth Hunter" else 1.16)
 
 p1, p2, p3 = pd_app.columns(3)
 p1.info(f"**Current Price Reference Base:**\n\n### {curr_price:.2f} BDT")
-p2.success(f"**Calculated Entry Allocation Target:**\n\n### {buy_tgt:.2f} BDT\n*(Calculated with local safety margin padding)*")
